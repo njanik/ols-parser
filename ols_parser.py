@@ -25,8 +25,23 @@ class OlsFileParser:
                 if firstChar != ";":
                     break
                 else:
-                    print line
 
+                    line = line[1:]
+                    values = line.split(':')
+
+                    fieldname = values[0].strip()
+                    value = values[1].strip()
+
+                    if fieldname == 'Rate':
+                        self.olsData.rate = value
+
+                    elif fieldname == 'Channels':
+                        self.olsData.channels = value
+
+                    elif fieldname == 'EnabledChannels':
+                        self.olsData.enabledChannels = value
+
+        print vars(self.olsData)
 
 
 
@@ -48,4 +63,4 @@ class OlsData:
 
 
 
-parser = OlsFileParser('1.ols')
+parser = OlsFileParser('ols/1.ols')
