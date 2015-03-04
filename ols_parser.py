@@ -13,10 +13,17 @@ class OlsFileParser:
 
 
 
-        trames = self.parseData(headers)
+        self.trames = self.parseData(headers)
+
+        #self.trames.displayData()
 
 
 
+
+
+    def getTrames(self):
+
+        return self.trames
 
 
     def parseHeader(self):
@@ -80,7 +87,7 @@ class OlsFileParser:
                         trames.addData(time, values)
 
 
-        print trames.displayData()
+        return trames
 
 
 
@@ -127,8 +134,81 @@ class TramesData:
 
 
 
+class TramesExporter:
+
+    trames = None
+
+    options = {'channelsToExport':[0], 'logicalOneState':True, 'logicalZeroState':True, 'logicalOneTime':1, 'logicalZeroTime':3, 'startTrameTime':5, 'spaceBetweenTrameTime':10}
 
 
+    def __init__(self, trames):
+
+        self.trames = trames
+
+    def setOptions(self, options):
+
+        self.options.update(options)
+
+
+    def generateXlsx(self):
+
+        for channel in self.options['channelsToExport']:
+
+            oldState = False
+            stateTime = 0
+
+            convertedTrames = []
+            packet = []
+
+
+            for time in sorted(self.trames.data):
+                print time
+                timeInSec = time / float(self.trames.rate)
+
+                state = self.trames.data[time][channel]
+                print str(timeInSec)
+                print self.trames.data[time][channel]
+                print '--------'
+
+
+                if state == oldState:
+                    stateTime = stateTime + 1
+
+                else:
+                    #change state
+
+
+                    #start of a new trame
+                    if state == self.options['logicalOneState'] and stateTime == self.options['startTrameTime']:
+                        packet = []
+                        stateTime = 0
+
+                    #ONE
+                    elif state == self.options['logicalOneState'] and stateTime == self.options['logicalOneTime']:
+                        packet.append(True)
+                        stateTime = 0
+
+
+                    #ZERO
+                    elif state == self.options['logicalZeroState'] and stateTime == self.options['logicalZeroTime']:
+                        packet.append(False)
+                        stateTime = 0
+
+                    elif stateTime > self.options['spaceBetweenTrameTime']:
+                        convertedTrames.append(packet)
+                        stateTime = 0
+
+
+
+
+                oldState = state
+
+            print convertedTrames
 
 
 parser = OlsFileParser('ols/fake.ols')
+trames = parser.getTrames()
+
+exportService = TramesExporter(trames)
+exportService.setOptions({'channelsToExport':[0], 'logicalOneState':True, 'logicalZeroState':True, 'logicalOneTime':1, 'logicalZeroTime':3, 'startTrameTime':5, 'spaceBetweenTrameTime':10})
+exportService.generateXlsx()
