@@ -1,0 +1,15 @@
+;Rate: 1000
+;Channels: 8
+;EnabledChannels: 255
+;Compressed: true
+;CursorEnabled: true
+000000ff@0
+000000c7@6
+00000003@7
+000000e7@16
+000000ff@17
+00000087@23
+00000003@24
+00000087@32
+000000ff@33
+000000c7@39
