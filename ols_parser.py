@@ -183,8 +183,9 @@ class TramesExporter:
 
             data = self.trames.getCleanData(channel)
 
-            convertedTrames = []
+            convertedTrames = {}
             packet = []
+            startTime = 0
 
             for time in sorted(data):
 
@@ -199,6 +200,7 @@ class TramesExporter:
                 #start of a new trame
                 if state == self.options['logicalOneState'] and duration == self.options['startTrameTime']:
                     packet = []
+                    startTime = time
 
 
                 elif state == self.options['logicalOneState'] and duration == self.options['logicalOneTime']:
@@ -210,16 +212,50 @@ class TramesExporter:
 
                 elif duration > self.options['spaceBetweenTrameTime'] and len(packet) > 0:
 
+
+                    toAdd = False
+
+
                     if 'errorControlSize' in self.options:
                         goodsize = False
 
                         for size in self.options['errorControlSize']:
                             if len(packet) == size:
-                                convertedTrames.append(packet)
+                                toAdd = True
                                 break
 
                     else:
-                        convertedTrames.append(packet)
+                        toAdd = True
+
+                    if toAdd:
+
+                        #check if the same trame was not already added
+                        binaryStr = ''
+                        for value in packet:
+                            binaryStr = binaryStr + str(int(value))
+
+                        hexValue = hex(int(binaryStr, 2)),
+
+
+
+                        if not hexValue in convertedTrames:
+
+                            packetInfo = {
+                                'metadata':
+                                {
+                                        'occurrence':1,
+                                        'hexValue': str(hexValue),
+                                        'startTime': str((startTime/float(self.trames.rate))*1000) + 'ms'
+                                },
+
+                                'packet':packet
+                            }
+
+                            convertedTrames[hexValue] = packetInfo
+
+                        else:
+
+                            convertedTrames[hexValue]['metadata']['occurrence'] += 1
 
 
                 else:
@@ -230,10 +266,7 @@ class TramesExporter:
 
             #print convertedTrames
 
-            #remove duplicate frames
-            convertedTrames = sorted(convertedTrames)
-            dedup = [convertedTrames[i] for i in range(len(convertedTrames)) if i == 0 or convertedTrames[i] != convertedTrames[i-1]]
-            convertedTrames = dedup
+
 
             # Create an new Excel file and add a worksheet.
             workbook = xlsxwriter.Workbook('trames.xlsx')
@@ -255,7 +288,14 @@ class TramesExporter:
             #worksheet.write(3, 0, 123.456)
 
 
-            worksheet.set_column('A:FF', 1)
+            worksheet.set_column(0,len(packetInfo['metadata']) -1, 10)
+            worksheet.set_column(len(packetInfo['metadata']),100, 1)
+
+
+
+
+            cellMetadataFormat = workbook.add_format()
+            cellMetadataFormat.set_font_color('red')
 
             formatZero = workbook.add_format()
             formatZero.set_font_color('#c1c1c1')
@@ -264,10 +304,16 @@ class TramesExporter:
             formatOne.set_font_color('black')
 
             line = 0
-            for packet in convertedTrames:
+            for key in convertedTrames:
+                packetInfo = convertedTrames[key]
 
                 col = 0
-                for value in packet:
+                for field in packetInfo['metadata']:
+                    worksheet.write(line, col, packetInfo['metadata'][field], cellMetadataFormat)
+                    col = col + 1
+
+                col = col + 1
+                for value in packetInfo['packet']:
 
                     if value == True:
                         value = '1'
@@ -292,5 +338,5 @@ parser = OlsFileParser('ols/1.ols')
 trames = parser.getTrames()
 
 exportService = TramesExporter(trames)
-exportService.setOptions({'channelsToExport':[0], 'logicalOneState':True, 'logicalZeroState':True, 'logicalOneTime':1, 'logicalZeroTime':3, 'startTrameTime':5, 'spaceBetweenTrameTime':10, 'errorControlSize':[72,96]})
+exportService.setOptions({'channelsToExport':[0], 'logicalOneState':True, 'logicalZeroState':True, 'logicalOneTime':1, 'logicalZeroTime':3, 'startTrameTime':5, 'spaceBetweenTrameTime':10, 'errorControlSize':[96]}) #72
 exportService.generateXlsx()
