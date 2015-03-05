@@ -15,6 +15,8 @@ class OlsFileParser:
 
         self.trames = self.parseData(headers)
 
+        self.trames.inputfile = self.inputFile
+
         #self.trames.displayData()
 
 
@@ -236,13 +238,31 @@ class TramesExporter:
 
                         hexValue = hex(int(binaryStr, 2)),
 
+                        frameType = 'unknown'
+
+                        for signature in self.options['signatures']:
+                            if binaryStr.startswith(signature) == True:
+                                frameType = self.options['signatures'][signature]
+                                break
 
 
-                        if not hexValue in convertedTrames:
+
+                        keep = True
+
+                        if 'keepOnlyFrameName' in self.options:
+                            if not frameType in self.options['keepOnlyFrameName']:
+                                keep = False
+
+
+                        if keep and not hexValue in convertedTrames:
+
+
 
                             packetInfo = {
                                 'metadata':
                                 {
+                                        'type':frameType,
+                                        'file':self.trames.inputfile,
                                         'occurrence':1,
                                         'hexValue': str(hexValue),
                                         'startTime': str((startTime/float(self.trames.rate))*1000) + 'ms'
@@ -251,9 +271,10 @@ class TramesExporter:
                                 'packet':packet
                             }
 
+                            keep
                             convertedTrames[hexValue] = packetInfo
 
-                        else:
+                        elif keep:
 
                             convertedTrames[hexValue]['metadata']['occurrence'] += 1
 
@@ -338,5 +359,29 @@ parser = OlsFileParser('ols/1.ols')
 trames = parser.getTrames()
 
 exportService = TramesExporter(trames)
-exportService.setOptions({'channelsToExport':[0], 'logicalOneState':True, 'logicalZeroState':True, 'logicalOneTime':1, 'logicalZeroTime':3, 'startTrameTime':5, 'spaceBetweenTrameTime':10, 'errorControlSize':[96]}) #72
+exportService.setOptions(
+    {
+        'channelsToExport':[0],
+        'logicalOneState':True,
+        'logicalZeroState':True,
+        'logicalOneTime':1,
+        'logicalZeroTime':3,
+        'startTrameTime':5,
+        'spaceBetweenTrameTime':10,
+        'errorControlSize':[96], #72
+        'signatures':{
+            '00100001':'A',
+            '10001011':'B',
+            '10100001':'C',
+            #'11000001':'D',
+            '10000001':'E',
+            '01001011':'F',
+            '01000001':'G'
+        },
+        'keepOnlyFrameName':{
+            'A','B'
+        }
+    }
+)
+
 exportService.generateXlsx()
