@@ -1,4 +1,4 @@
-import sys, xlsxwriter
+import sys, xlsxwriter, itertools
 
 class OlsFileParser:
 
@@ -190,8 +190,8 @@ class TramesExporter:
 
                 timeInSec = time / float(self.trames.rate)
 
-                print str(time)
-                print data[time]
+                #print str(time)
+                #print data[time]
 
                 state = data[time]['state']
                 duration = data[time]['duration']
@@ -209,17 +209,31 @@ class TramesExporter:
 
 
                 elif duration > self.options['spaceBetweenTrameTime'] and len(packet) > 0:
-                    convertedTrames.append(packet)
+
+                    if 'errorControlSize' in self.options:
+                        goodsize = False
+
+                        for size in self.options['errorControlSize']:
+                            if len(packet) == size:
+                                convertedTrames.append(packet)
+                                break
+
+                    else:
+                        convertedTrames.append(packet)
 
 
                 else:
-                    print '*******'
+                    pass
+                    #print '*******'
 
 
 
             #print convertedTrames
 
-
+            #remove duplicate frames
+            convertedTrames = sorted(convertedTrames)
+            dedup = [convertedTrames[i] for i in range(len(convertedTrames)) if i == 0 or convertedTrames[i] != convertedTrames[i-1]]
+            convertedTrames = dedup
 
             # Create an new Excel file and add a worksheet.
             workbook = xlsxwriter.Workbook('trames.xlsx')
@@ -244,7 +258,7 @@ class TramesExporter:
             worksheet.set_column('A:FF', 1)
 
             formatZero = workbook.add_format()
-            formatZero.set_font_color('gray')
+            formatZero.set_font_color('#c1c1c1')
 
             formatOne = workbook.add_format()
             formatOne.set_font_color('black')
@@ -278,5 +292,5 @@ parser = OlsFileParser('ols/1.ols')
 trames = parser.getTrames()
 
 exportService = TramesExporter(trames)
-exportService.setOptions({'channelsToExport':[0], 'logicalOneState':True, 'logicalZeroState':True, 'logicalOneTime':1, 'logicalZeroTime':3, 'startTrameTime':5, 'spaceBetweenTrameTime':10})
+exportService.setOptions({'channelsToExport':[0], 'logicalOneState':True, 'logicalZeroState':True, 'logicalOneTime':1, 'logicalZeroTime':3, 'startTrameTime':5, 'spaceBetweenTrameTime':10, 'errorControlSize':[72,96]})
 exportService.generateXlsx()
