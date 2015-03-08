@@ -236,7 +236,9 @@ for inputfile in inputfiles:
 
 
 
-                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['frame'] = packet
+                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['frame'] = binaryStr
+
+
 
                     else:
 
@@ -263,8 +265,8 @@ for inputfile in inputfiles:
 ############# EXPORT BINARY IN XLSX FORMAT ########################
 
 
-#
-#
+
+
 # workbook = xlsxwriter.Workbook('trames.xlsx')
 # worksheet = workbook.add_worksheet()
 #
@@ -324,8 +326,10 @@ for file in parsedFiles:
         del parsedFiles[file]['channels'][channel]['raw']
 
 
-
-
+if 'groupAllFiles' in options:
+    for file in parsedFiles.keys():
+        if file != '_GLOBAL_':
+            del parsedFiles[file]
 
 print json.dumps(parsedFiles, sort_keys=True, indent=4)
 #
