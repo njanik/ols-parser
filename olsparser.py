@@ -115,7 +115,7 @@ for inputfile in inputfiles:
             previousTime[channel] = 0
 
 
-        for time in parsedFiles[inputfile]['rawdata']:
+        for time in sorted(parsedFiles[inputfile]['rawdata']):
             values = parsedFiles[inputfile]['rawdata'][time]
 
 
@@ -125,6 +125,8 @@ for inputfile in inputfiles:
                     parsedFiles[inputfile]['channels']['raw'][channel] = {}
 
                 state = values[channel]
+
+
 
                 #if the previous state was the same (in the current channel), we don't need to keep this value
                 if previousState[channel] != state:
@@ -140,11 +142,20 @@ for inputfile in inputfiles:
 
         ################ CONVERT TO BINARY according to options parameters ##################
 
+
+
+
         for channel in options['channelsToExport']:
+
+
+
 
             lastKey = parsedFiles[inputfile]['channels']['raw'][channel].keys()[-1]
 
-            for time in parsedFiles[inputfile]['channels']['raw'][channel]:
+            for time in sorted(parsedFiles[inputfile]['channels']['raw'][channel]):
+                #print 'time ' + str(time)
+
+
                 stateInfo = parsedFiles[inputfile]['channels']['raw'][channel][time]
 
                 state = stateInfo['state']
@@ -326,8 +337,12 @@ for file in parsedFiles:
 
 #
 
+
 print json.dumps(parsedFiles, sort_keys=True, indent=4)
 #
 
 
+
+#
+#
 #print parsedFiles
