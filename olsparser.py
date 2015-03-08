@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import argparse, os
+import argparse, os, xlsxwriter
 import json
 from glob import glob
 
@@ -24,13 +24,14 @@ if 'groupAllFiles' in options and options['groupAllFiles'] == True:
 
     parsedFiles['_GLOBAL_'] = {}
     parsedFiles['_GLOBAL_']['channels'] = {}
-    parsedFiles['_GLOBAL_']['channels']['binary'] = {}
+
+    for channel in options['channelsToExport']:
+        parsedFiles['_GLOBAL_']['channels'][channel] = {'raw':{}, 'binary':{} }
+
 
 
 
 for inputfile in inputfiles:
-
-
 
 
     with open(inputfile, "r") as file:
@@ -98,13 +99,13 @@ for inputfile in inputfiles:
         ################ CLEAN AND SIMPLIFY DATA ##################
 
         parsedFiles[inputfile]['channels'] = {}
-        parsedFiles[inputfile]['channels']['raw'] = {}
-        parsedFiles[inputfile]['channels']['binary'] = {}
+
 
         fileIndex = inputfile
 
         if 'groupAllFiles' in options and options['groupAllFiles'] == True:
             fileIndex = '_GLOBAL_'
+
 
 
         #init previous state
@@ -121,8 +122,8 @@ for inputfile in inputfiles:
 
             for channel in options['channelsToExport']:
 
-                if not channel in parsedFiles[inputfile]['channels']['raw']:
-                    parsedFiles[inputfile]['channels']['raw'][channel] = {}
+                if not channel in parsedFiles[inputfile]['channels']:
+                    parsedFiles[inputfile]['channels'][channel] = { 'raw':{}, 'binary':{}  }
 
                 state = values[channel]
 
@@ -131,7 +132,8 @@ for inputfile in inputfiles:
                 #if the previous state was the same (in the current channel), we don't need to keep this value
                 if previousState[channel] != state:
 
-                    parsedFiles[inputfile]['channels']['raw'][channel][previousTime[channel]] = {
+
+                    parsedFiles[inputfile]['channels'][channel]['raw'][previousTime[channel]] = {
                         'time':previousTime[channel],
                         'state':int(not state),  # 'not' because we save the previous state
                         'duration':time - previousTime[channel]
@@ -147,16 +149,13 @@ for inputfile in inputfiles:
 
         for channel in options['channelsToExport']:
 
+            lastKey = parsedFiles[inputfile]['channels'][channel]['raw'].keys()[-1]
 
-
-
-            lastKey = parsedFiles[inputfile]['channels']['raw'][channel].keys()[-1]
-
-            for time in sorted(parsedFiles[inputfile]['channels']['raw'][channel]):
+            for time in sorted(parsedFiles[inputfile]['channels'][channel]['raw']):
                 #print 'time ' + str(time)
 
 
-                stateInfo = parsedFiles[inputfile]['channels']['raw'][channel][time]
+                stateInfo = parsedFiles[inputfile]['channels'][channel]['raw'][time]
 
                 state = stateInfo['state']
                 duration = stateInfo['duration']
@@ -221,11 +220,11 @@ for inputfile in inputfiles:
 
                     #check if the same exact frame not already exist
 
-                    if not hexValue in parsedFiles[fileIndex]['channels']['binary']:
+                    if not hexValue in parsedFiles[fileIndex]['channels'][channel]['binary']:
 
 
-                        parsedFiles[fileIndex]['channels']['binary'][hexValue] = {}
-                        parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata'] = {
+                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue] = {}
+                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata'] = {
                             'frameType': frameType,
                             'startTimes': [startTimeStr],
                             'length': len(binaryStr),
@@ -237,7 +236,7 @@ for inputfile in inputfiles:
 
 
 
-                        parsedFiles[fileIndex]['channels']['binary'][hexValue]['frame'] = None
+                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['frame'] = packet
 
                     else:
 
@@ -245,18 +244,18 @@ for inputfile in inputfiles:
                         #already exist.
 
                         #add the occurence of this frame
-                        parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata']['occurrence'] += 1
+                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['occurrence'] += 1
 
                         #add the the startTime (for the current file) is not already exist
                         #if not startTimeStr in parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata']['startTimes']:
 
-                        parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata']['startTimes'].append(startTimeStr)
+                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['startTimes'].append(startTimeStr)
 
 
 
                         #add the the filename is not already exist
-                        if not os.path.basename(inputfile) in parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata']['files']:
-                            parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata']['files'].append(os.path.basename(inputfile))
+                        if not os.path.basename(inputfile) in parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['files']:
+                            parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['files'].append(os.path.basename(inputfile))
 
 
 
@@ -264,7 +263,7 @@ for inputfile in inputfiles:
 ############# EXPORT BINARY IN XLSX FORMAT ########################
 
 
-
+#
 #
 # workbook = xlsxwriter.Workbook('trames.xlsx')
 # worksheet = workbook.add_worksheet()
@@ -285,7 +284,7 @@ for inputfile in inputfiles:
 #
 #
 # line = 0
-# for key in convertedTrames:
+# for key in parsedFiles:
 #     packetInfo = convertedTrames[key]
 #
 #     col = 0
@@ -316,26 +315,16 @@ for inputfile in inputfiles:
 
 
 
-
-
-
-
-
-
-
 #remove rawdata
 for file in parsedFiles:
-    #print parsedFiles[file]['rawdata']
-    if 'raw' in parsedFiles[file]['channels']:
-        del parsedFiles[file]['channels']['raw']
+    for channel in options['channelsToExport']:
+        print file
+        if 'rawdata' in parsedFiles[file]:
+            del parsedFiles[file]['rawdata']
+        del parsedFiles[file]['channels'][channel]['raw']
 
-    if 'rawdata' in parsedFiles[file]:
-        del parsedFiles[file]['rawdata']
 
-    #for channel in parsedFiles[file]['channels']:
-    #    del parsedFiles[file]['channels']['raw'][channel]
 
-#
 
 
 print json.dumps(parsedFiles, sort_keys=True, indent=4)
