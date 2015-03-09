@@ -267,50 +267,77 @@ for inputfile in inputfiles:
 
 
 
-# workbook = xlsxwriter.Workbook('trames.xlsx')
-# worksheet = workbook.add_worksheet()
+workbook = xlsxwriter.Workbook('trames.xlsx')
+worksheet = workbook.add_worksheet()
+
 #
-# #
-# #worksheet.set_column(0,len(packetInfo['metadata']) -1, 10)
-# #worksheet.set_column(len(packetInfo['metadata']),100, 1)
-#
-# # create styles
-# cellMetadataFormat = workbook.add_format()
-# cellMetadataFormat.set_font_color('red')
-#
-# formatZero = workbook.add_format()
-# formatZero.set_font_color('#c1c1c1')
-#
-# formatOne = workbook.add_format()
-# formatOne.set_font_color('black')
-#
-#
-# line = 0
-# for key in parsedFiles:
-#     packetInfo = convertedTrames[key]
-#
-#     col = 0
-#     for field in packetInfo['metadata']:
-#         worksheet.write(line, col, packetInfo['metadata'][field], cellMetadataFormat)
-#         col = col + 1
-#
-#     col = col + 1
-#     for value in packetInfo['packet']:
-#
-#         if value == True:
-#             value = '1'
-#             cellFormat = formatOne
-#         else:
-#             value = '0'
-#             cellFormat = formatZero
-#
-#         worksheet.write(line, col, value, cellFormat)
-#         col = col + 1
-#
-#     line = line + 1
-#
-#
-# workbook.close()
+#worksheet.set_column(0,len(packetInfo['metadata']) -1, 10)
+#worksheet.set_column(len(packetInfo['metadata']),100, 1)
+
+# create styles
+cellMetadataFormat = workbook.add_format()
+cellMetadataFormat.set_font_color('red')
+
+formatZero = workbook.add_format()
+formatZero.set_font_color('#c1c1c1')
+
+formatOne = workbook.add_format()
+formatOne.set_font_color('black')
+
+line = 0
+
+for file in parsedFiles:
+    for channel in parsedFiles[file]['channels']:
+
+        for hexIndex in parsedFiles[file]['channels'][channel]['binary']:
+
+            frameInfo = parsedFiles[file]['channels'][channel]['binary'][hexIndex]
+
+
+            col = 0
+
+
+            if line == 0:
+                #DISPLAY LEGEND OF EACH METADATA COLS
+                for legend in frameInfo['metadata'].keys():
+
+                    worksheet.write(line, col, legend)
+                    col = col + 1
+
+
+                col = col + 1
+                line += 1
+
+
+            col = 0
+
+
+
+            for field in frameInfo['metadata']:
+
+                if not type(frameInfo['metadata'][field]) is list:
+
+                    value = frameInfo['metadata'][field]
+
+                else:
+
+                    value = ", ".join(frameInfo['metadata'][field])
+
+                worksheet.write(line, col, value , cellMetadataFormat)
+                col = col + 1
+
+
+            col = col + 1
+
+
+            for state in list(frameInfo['frame']):
+                worksheet.write(line, col, state , formatOne)
+                col = col + 1
+
+            line +=1
+
+
+workbook.close()
 
 
 
