@@ -189,8 +189,7 @@ for inputfile in inputfiles:
                                 break
 
 
-                    if not keepFrame:
-                        break
+
 
 
                     ########## METADATA #######################################
@@ -212,67 +211,99 @@ for inputfile in inputfiles:
                                 break
 
 
-                    #save the binary data
-
-                    startTimeStr = str((startTime/float(parsedFiles[inputfile]['headers']['rate']))*1000) + 'ms'
-                    startTimeStr = os.path.basename(inputfile) + '>' + startTimeStr
+                    if 'frameTypeToKeep' in options and not frameType in options['frameTypeToKeep']:
+                        keepFrame = False
 
 
-                    #check if the same exact frame not already exist
+                    if keepFrame:
 
-                    if not hexValue in parsedFiles[fileIndex]['channels'][channel]['binary']:
+                        #save the binary data
 
-
-                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue] = {}
-                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata'] = {
-                            'frameType': frameType,
-                            'startTimes': [startTimeStr],
-                            'length': len(binaryStr),
-                            'occurrence':1,
-                            'files':[os.path.basename(inputfile)]
-                        }
+                        startTimeStr = str((startTime/float(parsedFiles[inputfile]['headers']['rate']))*1000) + 'ms'
+                        startTimeStr = os.path.basename(inputfile) + '>' + startTimeStr
 
 
+                        #check if the same exact frame not already exist
+
+                        if not hexValue in parsedFiles[fileIndex]['channels'][channel]['binary']:
 
 
+                            parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue] = {}
+                            parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata'] = {
+                                'frameType': frameType,
+                                'startTimes': [startTimeStr],
+                                'length': len(binaryStr),
+                                'occurrence':1,
+                                'files':[os.path.basename(inputfile)]
+                            }
 
-                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['frame'] = binaryStr
-
-
-
-                    else:
-
-
-                        #already exist.
-
-                        #add the occurence of this frame
-                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['occurrence'] += 1
-
-                        #add the the startTime (for the current file) is not already exist
-                        #if not startTimeStr in parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata']['startTimes']:
-
-                        parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['startTimes'].append(startTimeStr)
+                            parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['frame'] = binaryStr
 
 
 
-                        #add the the filename is not already exist
-                        if not os.path.basename(inputfile) in parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['files']:
-                            parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['files'].append(os.path.basename(inputfile))
+                        else:
 
 
+                            #already exist.
+
+                            #add the occurence of this frame
+                            parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['occurrence'] += 1
+
+                            #add the the startTime (for the current file) is not already exist
+                            #if not startTimeStr in parsedFiles[fileIndex]['channels']['binary'][hexValue]['metadata']['startTimes']:
+
+                            parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['startTimes'].append(startTimeStr)
+
+
+
+                            #add the the filename is not already exist
+                            if not os.path.basename(inputfile) in parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['files']:
+                                parsedFiles[fileIndex]['channels'][channel]['binary'][hexValue]['metadata']['files'].append(os.path.basename(inputfile))
+
+
+
+
+
+##################################   remove rawdata
+for file in parsedFiles:
+    for channel in options['channelsToExport']:
+
+        if 'rawdata' in parsedFiles[file]:
+            del parsedFiles[file]['rawdata']
+        del parsedFiles[file]['channels'][channel]['raw']
+
+
+if 'groupAllFiles' in options:
+    for file in parsedFiles.keys():
+        if file != '_GLOBAL_':
+            del parsedFiles[file]
 
 
 ############# EXPORT BINARY IN XLSX FORMAT ########################
 
 
-
-
 workbook = xlsxwriter.Workbook('trames.xlsx')
 worksheet = workbook.add_worksheet()
 
-#
+
+
+
+firstChannel = options['channelsToExport'][0]
+firstFile = parsedFiles.keys()[0]
+
+#print firstChannel
+#print firstFile
+
+#print parsedFiles[firstFile]
+firstHexIndex = parsedFiles[firstFile]['channels'][firstChannel]['binary'].keys()[0]
+
+metadata = parsedFiles[firstFile]['channels'][firstChannel]['binary'][firstHexIndex]['metadata']
+
+#print metadata
+
+
 #worksheet.set_column(0,len(packetInfo['metadata']) -1, 10)
-#worksheet.set_column(len(packetInfo['metadata']),100, 1)
+worksheet.set_column(len(metadata),100, 1)
 
 # create styles
 cellMetadataFormat = workbook.add_format()
@@ -312,26 +343,39 @@ for file in parsedFiles:
             col = 0
 
 
-
             for field in frameInfo['metadata']:
 
                 if not type(frameInfo['metadata'][field]) is list:
-
                     value = frameInfo['metadata'][field]
 
                 else:
+                    #if value is a list, just display the first element with the total number of element
+                    value = frameInfo['metadata'][field][0]
+                    nb = len(frameInfo['metadata'][field])
+                    if nb>1:
+                        value += ' ('+ str(nb) +')'
 
-                    value = ", ".join(frameInfo['metadata'][field])
+                        #and put all the real value in a comment
+                        comment = "\n".join(frameInfo['metadata'][field])
+
+
+                        worksheet.write_comment(line, col, comment)
+
 
                 worksheet.write(line, col, value , cellMetadataFormat)
                 col = col + 1
 
 
-            col = col + 1
+            #col = col + 1
 
 
             for state in list(frameInfo['frame']):
-                worksheet.write(line, col, state , formatOne)
+                if state == '1':
+                    cellFormat = formatOne
+                else:
+                    cellFormat = formatZero
+
+                worksheet.write(line, col, state , cellFormat)
                 col = col + 1
 
             line +=1
@@ -344,21 +388,9 @@ workbook.close()
 
 
 
-#remove rawdata
-for file in parsedFiles:
-    for channel in options['channelsToExport']:
-        print file
-        if 'rawdata' in parsedFiles[file]:
-            del parsedFiles[file]['rawdata']
-        del parsedFiles[file]['channels'][channel]['raw']
 
 
-if 'groupAllFiles' in options:
-    for file in parsedFiles.keys():
-        if file != '_GLOBAL_':
-            del parsedFiles[file]
-
-print json.dumps(parsedFiles, sort_keys=True, indent=4)
+#print json.dumps(parsedFiles, sort_keys=True, indent=4)
 #
 
 
