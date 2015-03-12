@@ -4,6 +4,81 @@ import argparse, os, xlsxwriter
 import json
 from glob import glob
 
+
+
+
+
+##################################################################################
+
+def xlsxWriteHeader(wordksheet, metadataKeys):
+
+    line = 0
+    col = 0
+
+    worksheet.set_column(len(metadataKeys),100, 1)
+
+    #DISPLAY LEGEND OF EACH METADATA COLS
+    for legend in metadataKeys:
+
+        worksheet.write(line, col, legend)
+        col = col + 1
+
+
+
+
+##################################################################################
+
+def xlsxWriteFrame(worksheet, line, frameInfo):
+
+
+    col = 0
+
+
+    for field in frameInfo['metadata']:
+
+        if not type(frameInfo['metadata'][field]) is list:
+            value = frameInfo['metadata'][field]
+
+        else:
+            #if value is a list, just display the first element with the total number of element
+            value = frameInfo['metadata'][field][0]
+            nb = len(frameInfo['metadata'][field])
+            if nb>1:
+                value += ' ('+ str(nb) +')'
+
+                #and put all the real value in a comment
+                comment = "\n".join(frameInfo['metadata'][field])
+
+
+                worksheet.write_comment(line, col, comment)
+
+
+        worksheet.write(line, col, value , cellMetadataFormat)
+        col = col + 1
+
+
+    #col = col + 1
+
+
+    for state in list(frameInfo['frame']):
+        if state == '1':
+            cellFormat = formatOne
+        else:
+            cellFormat = formatZero
+
+        worksheet.write(line, col, state , cellFormat)
+        col = col + 1
+
+    line +=1
+###############################################################################
+
+
+
+
+
+
+
+
 parser = argparse.ArgumentParser(description='olsparser parameters descriptions:')
 parser.add_argument('-i','--inputfile', help='One OLS file or a ', required=True)
 args = vars(parser.parse_args())
@@ -286,24 +361,14 @@ workbook = xlsxwriter.Workbook('trames.xlsx')
 worksheet = workbook.add_worksheet()
 
 
-
-
 firstChannel = options['channelsToExport'][0]
 firstFile = parsedFiles.keys()[0]
-
-#print firstChannel
-#print firstFile
-
-#print parsedFiles[firstFile]
 firstHexIndex = parsedFiles[firstFile]['channels'][firstChannel]['binary'].keys()[0]
 
 metadata = parsedFiles[firstFile]['channels'][firstChannel]['binary'][firstHexIndex]['metadata']
 
-#print metadata
-
-
 #worksheet.set_column(0,len(packetInfo['metadata']) -1, 10)
-worksheet.set_column(len(metadata),100, 1)
+
 
 # create styles
 cellMetadataFormat = workbook.add_format()
@@ -315,77 +380,54 @@ formatZero.set_font_color('#c1c1c1')
 formatOne = workbook.add_format()
 formatOne.set_font_color('black')
 
-line = 0
+
+
+### write all frame in the first sheet
+
+line = 1
+
+xlsxWriteHeader(worksheet, metadata.keys())
 
 for file in parsedFiles:
+
     for channel in parsedFiles[file]['channels']:
 
         for hexIndex in parsedFiles[file]['channels'][channel]['binary']:
 
             frameInfo = parsedFiles[file]['channels'][channel]['binary'][hexIndex]
 
-
-            col = 0
-
-
-            if line == 0:
-                #DISPLAY LEGEND OF EACH METADATA COLS
-                for legend in frameInfo['metadata'].keys():
-
-                    worksheet.write(line, col, legend)
-                    col = col + 1
+            xlsxWriteFrame(worksheet, line, frameInfo)
+            line += 1
 
 
-                col = col + 1
-                line += 1
 
 
-            col = 0
 
+# sort each frameType in each sheets ###########################
 
-            for field in frameInfo['metadata']:
+if 'signatures' in options:
+    for signature in options['signatures']:
 
-                if not type(frameInfo['metadata'][field]) is list:
-                    value = frameInfo['metadata'][field]
+        frameType = options['signatures'][signature]
 
-                else:
-                    #if value is a list, just display the first element with the total number of element
-                    value = frameInfo['metadata'][field][0]
-                    nb = len(frameInfo['metadata'][field])
-                    if nb>1:
-                        value += ' ('+ str(nb) +')'
+        worksheet = workbook.add_worksheet(frameType)
+        line = 1
 
-                        #and put all the real value in a comment
-                        comment = "\n".join(frameInfo['metadata'][field])
+        xlsxWriteHeader(worksheet, metadata.keys())
 
+        for file in parsedFiles:
+            for channel in parsedFiles[file]['channels']:
 
-                        worksheet.write_comment(line, col, comment)
+                for hexIndex in parsedFiles[file]['channels'][channel]['binary']:
 
+                    frameInfo = parsedFiles[file]['channels'][channel]['binary'][hexIndex]
 
-                worksheet.write(line, col, value , cellMetadataFormat)
-                col = col + 1
-
-
-            #col = col + 1
-
-
-            for state in list(frameInfo['frame']):
-                if state == '1':
-                    cellFormat = formatOne
-                else:
-                    cellFormat = formatZero
-
-                worksheet.write(line, col, state , cellFormat)
-                col = col + 1
-
-            line +=1
+                    if frameInfo['metadata']['frameType'] == frameType:
+                        xlsxWriteFrame(worksheet, line, frameInfo)
+                        line += 1
 
 
 workbook.close()
-
-
-
-
 
 
 
