@@ -15,12 +15,20 @@ def xlsxWriteHeader(wordksheet, metadataKeys):
     line = 0
     col = 0
 
-    worksheet.set_column(len(metadataKeys),100, 1)
+
+
+
+    worksheet.set_column(len(metadataKeys),200, 1)
+
 
     #DISPLAY LEGEND OF EACH METADATA COLS
     for legend in metadataKeys:
 
-        worksheet.write(line, col, legend)
+        worksheet.write(line, col, legend, cellHeaderFormat)
+        col = col + 1
+
+    for i in range(1,200):
+        worksheet.write(line, col, i, cellHeaderFormat)
         col = col + 1
 
 
@@ -371,14 +379,22 @@ metadata = parsedFiles[firstFile]['channels'][firstChannel]['binary'][firstHexIn
 
 
 # create styles
+
+cellHeaderFormat = workbook.add_format()
+cellHeaderFormat.set_font_color('blue')
+cellHeaderFormat.set_font_size('7')
+
 cellMetadataFormat = workbook.add_format()
 cellMetadataFormat.set_font_color('red')
+cellMetadataFormat.set_font_size('9')
 
 formatZero = workbook.add_format()
 formatZero.set_font_color('#c1c1c1')
 
+
 formatOne = workbook.add_format()
 formatOne.set_font_color('black')
+formatOne.set_bg_color('f0ffb2')
 
 
 
