@@ -4,18 +4,14 @@ import argparse, os, xlsxwriter
 import json
 from glob import glob
 
-
-
-
+debugLevel = 3
 
 ##################################################################################
 
 def xlsxWriteHeader(wordksheet, metadataKeys):
 
-    line = 0
+    line = 1
     col = 0
-
-
 
 
     worksheet.set_column(len(metadataKeys),200, 1)
@@ -95,6 +91,12 @@ args = vars(parser.parse_args())
 
 inputfiles = glob(args['inputfile'])
 
+if debugLevel >=2:
+    print 'inputfiles:'
+    print inputfiles
+
+
+
 
 #load configuration
 options = {}
@@ -116,6 +118,8 @@ if 'groupAllFiles' in options and options['groupAllFiles'] == True:
 
 for inputfile in inputfiles:
 
+    if debugLevel >=2:
+        print 'Current file: ' + inputfile
 
     with open(inputfile, "r") as file:
 
@@ -134,6 +138,7 @@ for inputfile in inputfiles:
 
 
             if firstChar == ";":
+
 
                 ################ PARSE HEADER ##################
 
@@ -176,10 +181,18 @@ for inputfile in inputfiles:
                 parsedFiles[inputfile]['rawdata'][time] = values
 
 
+        if debugLevel >=2:
+            print 'header parsed: ' + str(headers)
+            print 'data parsed too. Number of points found: ' + str(len(parsedFiles[inputfile]['rawdata']))
+
         parsedFiles[inputfile]['headers'] = headers
 
 
         ################ CLEAN AND SIMPLIFY DATA ##################
+
+
+        if debugLevel >=2:
+            print 'Start data clean process'
 
         parsedFiles[inputfile]['channels'] = {}
 
@@ -210,23 +223,28 @@ for inputfile in inputfiles:
 
                 state = values[channel]
 
-
-
                 #if the previous state was the same (in the current channel), we don't need to keep this value
                 if previousState[channel] != state:
 
+                    duration = (time - previousTime[channel])  / (headers['rate'] / 1000)
 
                     parsedFiles[inputfile]['channels'][channel]['raw'][previousTime[channel]] = {
                         'time':previousTime[channel],
                         'state':int(not state),  # 'not' because we save the previous state
-                        'duration':time - previousTime[channel]
+                        'duration':duration
                     }
 
                     previousState[channel] = state
                     previousTime[channel] = time
 
+
+        if debugLevel >=2:
+            print 'Data cleanned: Number of points: ' + str(len(parsedFiles[inputfile]['channels'][channel]['raw']))
+
         ################ CONVERT TO BINARY according to options parameters ##################
 
+        if debugLevel >=2:
+            print 'Start of the binary conversion process'
 
 
 
@@ -242,6 +260,9 @@ for inputfile in inputfiles:
 
                 state = stateInfo['state']
                 duration = stateInfo['duration']
+
+                if debugLevel >=4:
+                    print 'State: ' + str(state) + ' Duration: ' + str(duration)
 
 
                 #start of a new trame
@@ -259,6 +280,8 @@ for inputfile in inputfiles:
 
                 elif len(packet) > 0 and (duration > options['minDurationBetweenTrame'] or time == lastKey):
 
+                    if debugLevel >=2:
+                        print 'end of the packet'
 
                     #The frame is complete. This frame will now be decoded in binary
 
@@ -283,6 +306,9 @@ for inputfile in inputfiles:
                         binaryStr += str(value)
 
                     hexValue = hex(int(binaryStr, 2))
+
+                    if debugLevel >=2:
+                        print 'Frame Hexa value: ' + str(hexValue)
 
 
                     #Name the frame from their signatures
@@ -345,7 +371,7 @@ for inputfile in inputfiles:
 
 
 
-
+#print parsedFiles
 
 ##################################   remove rawdata
 for file in parsedFiles:
@@ -371,6 +397,8 @@ worksheet = workbook.add_worksheet()
 
 firstChannel = options['channelsToExport'][0]
 firstFile = parsedFiles.keys()[0]
+
+
 firstHexIndex = parsedFiles[firstFile]['channels'][firstChannel]['binary'].keys()[0]
 
 metadata = parsedFiles[firstFile]['channels'][firstChannel]['binary'][firstHexIndex]['metadata']
@@ -388,6 +416,13 @@ cellMetadataFormat = workbook.add_format()
 cellMetadataFormat.set_font_color('red')
 cellMetadataFormat.set_font_size('9')
 
+
+cellFormatSection = workbook.add_format()
+cellFormatSection.set_bg_color('#00FF00')
+cellFormatSection.set_font_size('7')
+#cellFormatSection.set_font_color('red')
+#cellFormatSection.set_rotation(45)
+
 formatZero = workbook.add_format()
 formatZero.set_font_color('#c1c1c1')
 
@@ -400,9 +435,11 @@ formatOne.set_bg_color('f0ffb2')
 
 ### write all frame in the first sheet
 
-line = 1
+
 
 xlsxWriteHeader(worksheet, metadata.keys())
+
+line = 2
 
 for file in parsedFiles:
 
@@ -427,9 +464,10 @@ if 'signatures' in options:
         frameType = options['signatures'][signature]
 
         worksheet = workbook.add_worksheet(frameType)
-        line = 1
 
         xlsxWriteHeader(worksheet, metadata.keys())
+
+        line = 2
 
         for file in parsedFiles:
             for channel in parsedFiles[file]['channels']:
@@ -441,6 +479,42 @@ if 'signatures' in options:
                     if frameInfo['metadata']['frameType'] == frameType:
                         xlsxWriteFrame(worksheet, line, frameInfo)
                         line += 1
+
+
+        if 'frameSections' in options:
+
+
+
+            for section in options['frameSections']:
+                if frameType in section['frameType']:
+
+                    col = len(metadata)
+                    x = col + section['startByte'] -1
+                    length = section['length']
+
+                    sectionFormatDefault= {
+                        'font_color':'#000000',
+                        'bg_color':'#ff0000',
+                        'font_size':8
+                    }
+
+                    if not 'style' in section:
+                        section['style'] = {}
+
+                    sectionFormat = dict(sectionFormatDefault.items() + section['style'].items())
+
+
+                    sectionFormat = workbook.add_format(sectionFormat)
+
+
+                    # DISPLAY THE NAME OF THE SECTION #########
+                    if length > 1:
+                        worksheet.merge_range(0, x, 0, x + length -1, section['name'], sectionFormat )
+                    else:
+                        worksheet.write(0, x, section['name'], sectionFormat)
+
+                    if 'description' in section:
+                        worksheet.write_comment(0, x, section['description'])
 
 
 workbook.close()
