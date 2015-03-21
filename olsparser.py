@@ -70,7 +70,7 @@ def xlsxWriteFrame(worksheet, line, frameInfo):
         else:
             cellFormat = formatZero
 
-        worksheet.write(line, col, state , cellFormat)
+        worksheet.write_number(line, col, int(state) , cellFormat)
         col = col + 1
 
     line +=1
