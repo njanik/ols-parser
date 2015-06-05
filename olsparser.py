@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-import argparse, os, xlsxwriter
+import argparse, os, xlsxwriter, sys
 import json
 from glob import glob
 
-debugLevel = 3
+debugLevel = 2
 
 ##################################################################################
 
@@ -213,7 +213,9 @@ for inputfile in inputfiles:
 
 
         for time in sorted(parsedFiles[inputfile]['rawdata']):
+            #print time
             values = parsedFiles[inputfile]['rawdata'][time]
+
 
 
             for channel in options['channelsToExport']:
@@ -222,6 +224,7 @@ for inputfile in inputfiles:
                     parsedFiles[inputfile]['channels'][channel] = { 'raw':{}, 'binary':{}  }
 
                 state = values[channel]
+
 
                 #if the previous state was the same (in the current channel), we don't need to keep this value
                 if previousState[channel] != state:
@@ -241,6 +244,7 @@ for inputfile in inputfiles:
         if debugLevel >=2:
             print 'Data cleanned: Number of points: ' + str(len(parsedFiles[inputfile]['channels'][channel]['raw']))
 
+
         ################ CONVERT TO BINARY according to options parameters ##################
 
         if debugLevel >=2:
@@ -250,7 +254,10 @@ for inputfile in inputfiles:
 
         for channel in options['channelsToExport']:
 
-            lastKey = parsedFiles[inputfile]['channels'][channel]['raw'].keys()[-1]
+            lastKey = sorted(parsedFiles[inputfile]['channels'][channel]['raw'].keys())[-1]
+
+
+            hasStart = False
 
             for time in sorted(parsedFiles[inputfile]['channels'][channel]['raw']):
                 #print 'time ' + str(time)
@@ -269,16 +276,19 @@ for inputfile in inputfiles:
                 if time == 0 or state == options['logicalOneState'] and duration == options['startTrameDuration']:
                     packet = []
                     startTime = time
+                    hasStart = True
 
 
-                elif state == options['logicalOneState'] and duration == options['logicalOneDuration']:
+                elif hasStart and state == options['logicalOneState'] and duration == options['logicalOneDuration']:
                     packet.append(1)
 
-                elif state == options['logicalZeroState'] and duration == options['logicalZeroDuration']:
+                elif hasStart and state == options['logicalZeroState'] and duration == options['logicalZeroDuration']:
                     packet.append(0)
 
 
-                elif len(packet) > 0 and (duration > options['minDurationBetweenTrame'] or time == lastKey):
+                elif hasStart and len(packet) > 0 and (duration > options['minDurationBetweenTrame'] or time == lastKey):
+
+                    hasStart = False
 
                     if debugLevel >=2:
                         print 'end of the packet'
